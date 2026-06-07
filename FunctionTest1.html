@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Doodle Speak - AI 英语口语陪练</title>
+    <!-- 引入谷歌手绘卡通字体 Comic Neue & Fredoka -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #FFFEF7; /* 温暖极浅米白 */
+            --charcoal: #2C2C2C; /* 手绘炭黑 */
+            --primary-yellow: #FFD95A; /* 柔和暖黄 */
+            --primary-orange: #FFAD60; /* 粉甜橙 */
+            --primary-blue: #96E9C6; /* 马卡龙草绿/青 */
+            --accent-blue: #A2D2FF; /* 天蓝色 */
+            --bubble-user: #FFD1E3; /* 可爱浅粉 */
+            --bubble-ai: #E8F9FD; /* 浅柔蓝白 */
+            --doodle-border: 3px solid var(--charcoal);
+            --font-cartoon: 'Fredoka', 'Comic Neue', 'Chalkboard SE', 'Comic Sans MS', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: var(--font-cartoon);
+            background-color: var(--bg-color);
+            color: var(--charcoal);
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            user-select: none;
+        }
+
+        /* 飘动的英文字母背景层 */
+        #letters-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .floating-letter {
+            position: absolute;
+            color: var(--charcoal);
+            opacity: 0.08;
+            font-family: var(--font-cartoon);
+            font-weight: 700;
+            animation: floatMove linear infinite;
+        }
+
+        @keyframes floatMove {
+            0% {
+                transform: translateY(110vh) rotate(0deg) scale(0.8);
+            }
+            50% {
+                transform: translateY(50vh) rotate(180deg) scale(1.2);
+            }
+            100% {
+                transform: translateY(-20vh) rotate(360deg) scale(0.8);
+            }
+        }
+
+        /* 主容器 - 模拟手机App边框 */
+        .app-container {
+            width: 100%;
+            max-width: 460px;
+            height: 100%;
+            max-height: 920px;
+            background: #FFFFFF;
+            border-radius: 36px;
+            border: 4px solid var(--charcoal);
+            box-shadow: 12px 12px 0px var(--charcoal);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            z-index: 10;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        @media (max-width: 480px) {
+            .app-container {
+                border-radius: 0px;
+                border: none;
+                box-shadow: none;
+                max-width: 100%;
+                max-height: 100%;
+            }
+        }
+
+        /* 手机状态栏手绘感觉 */
+        .statusbar-doodle {
+            height: 44px;
+            background: transparent;
+            border-bottom: 2px dashed #DDD;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 24px;
+            font-size: 14px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+
+        .statusbar-doodle .icons {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        /* 内容分栏 */
+        .app-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            position: relative;
+            padding: 16px;
+        }
+
+        /* 隐藏所有的 screen */
+        .screen {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.92); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* 卡通按钮骨架与动效 */
+        .btn-cartoon {
+            background-color: var(--primary-yellow);
+            border: var(--doodle-border);
+            border-radius: 20px;
+            padding: 14px 20px;
+            color: var(--charcoal);
+            font-family: var(--font-cartoon);
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 4px 4px 0px var(--charcoal);
+            outline: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            margin: 8px 0;
+            position: relative;
+        }
+
+        /* 悬停与触摸缩放色变 */
+        .btn-cartoon:hover {
+            transform: scale(1.03) translateY(-2px);
+            box-shadow: 6px 6px 0px var(--charcoal);
+            filter: brightness(1.05);
+        }
+
+        /* 点击下沉 */
+        .btn-cartoon:active {
+            transform: scale(0.96) translateY(4px);
+            box-shadow: 1px 1px 0px var(--charcoal);
+        }
+
+        .btn-orange { background-color: var(--primary-orange); }
+        .btn-blue { background-color: var(--primary-blue); }
+        .btn-accent { background-color: var(--accent-blue); }
+        .btn-pink { background-color: var(--bubble-user); }
+        .btn-white { background-color: #FFFFFF; }
+
+        /* Doodle风格卡通输入框 */
+        .input-cartoon {
+            border: var(--doodle-border);
+            border-radius: 18px;
+            padding: 12px 16px;
+            font-family: var(--font-cartoon);
+            font-size: 15px;
+            color: var(--charcoal);
+            background: #FFF;
+            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.05), 3px 3px 0px var(--charcoal);
+            outline: none;
+            transition: transform 0.2s;
+        }
+        .input-cartoon:focus {
+            transform: translateY(-2px);
+            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.05), 5px 5px 0px var(--charcoal);
+        }
+
+        /* Doodle风格卡片/容器 */
+        .card-doodle {
+            background: #FFFFFF;
+            border: var(--doodle-border);
+            border-radius: 24px;
+            padding: 18px;
+            box-shadow: 6px 6px 0px var(--charcoal);
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        /* 标题手绘线/背景块 */
+        .title-container {
+            text-align: center;
+            margin: 12px 0 20px 0;
+            position: relative;
+        }
+
+        .title-container h1 {
+            font-size: 28px;
+            display: inline-block;
+            position: relative;
+            z-index: 2;
+        }
+
+        .title-underline {
+            position: absolute;
+            bottom: -6px;
+            left: 5%;
+            width: 90%;
+            height: 10px;
+            background: var(--primary-yellow);
+            z-index: -1;
+            border-radius: 10px;
+            transform: rotate(-1.5deg);
+        }
+
+        /* --- 1. 首页 (Home Screen) --- */
+        .scene-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .scene-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            background: #fff;
+        }
+
+        .scene-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 8px 8px 0px var(--charcoal);
+        }
+
+        .scene-card .emoji {
+            font-size: 40px;
+            margin-bottom: 8px;
+            transition: transform 0.3s;
+        }
+
+        .scene-card:hover .emoji {
+            transform: rotate(10deg) scale(1.15);
+        }
+
+        .scene-card h3 {
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .scene-card p {
+            font-size: 11px;
+            color: #777;
+        }
+
+        /* 自定义场景块 */
+        .custom-scene-box {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 8px;
+        }
+
+        .custom-scene-box input {
+            flex: 1;
+        }
+
+        /* --- 2. 对话聊天室 (Chat Screen) --- */
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid var(--charcoal);
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+        }
+
+        .back-icon {
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .avatar-panel {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .mascot-avatar {
+            width: 48px;
+            height: 48px;
+            background: var(--primary-yellow);
+            border-radius: 50%;
+            border: 3px solid var(--charcoal);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            animation: mascotBoing 2s infinite ease-in-out;
+        }
+
+        @keyframes mascotBoing {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-4px) scale(1.05); }
+        }
+
+        .coach-info h4 {
+            font-size: 15px;
+        }
+        .coach-info span {
+            font-size: 10px;
+            padding: 2px 6px;
+            background: var(--primary-blue);
+            border-radius: 8px;
+            border: 1.5px solid var(--charcoal);
+            display: inline-block;
+        }
+
+        /* 聊天气泡列表 */
+        .message-stream {
+            flex: 1;
+            overflow-y: auto;
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            border: 2.5px solid var(--charcoal);
+            border-radius: 18px;
+            background: #FEFFFA;
+            margin-bottom: 12px;
+        }
+
+        /* 聊天气泡 */
+        .chat-bubble-container {
+            display: flex;
+            flex-direction: column;
+            max-width: 85%;
+            animation: bubblePop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.15);
+        }
+
+        @keyframes bubblePop {
+            0% { transform: scale(0.9); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .chat-bubble-container.ai {
+            align-self: flex-start;
+        }
+
+        .chat-bubble-container.user {
+            align-self: flex-end;
+        }
+
+        .bubble-label {
+            font-size: 11px;
+            font-weight: bold;
+            margin-bottom: 3px;
+            color: #555;
+            padding: 0 4px;
+        }
+        .chat-bubble-container.user .bubble-label {
+            text-align: right;
+        }
+
+        .bubble-content {
+            border: var(--doodle-border);
+            border-radius: 18px;
+            padding: 12px 14px;
+            font-size: 14px;
+            line-height: 1.4;
+            color: var(--charcoal);
+            box-shadow: 3px 3px 0px var(--charcoal);
+            position: relative;
+        }
+
+        .chat-bubble-container.ai .bubble-content {
+            background-color: var(--bubble-ai);
+            border-top-left-radius: 2px;
+        }
+
+        .chat-bubble-container.user .bubble-content {
+            background-color: var(--bubble-user);
+            border-top-right-radius: 2px;
+        }
+
+        /* 语音发音纠错面板（气泡内嵌套） */
+        .live-correction-box {
+            margin-top: 8px;
+            background: #FFFFFF;
+            border: 2px solid var(--charcoal);
+            border-radius: 12px;
+            padding: 6px 10px;
+            font-size: 12px;
+            box-shadow: 2px 2px 0px var(--charcoal);
+            animation: bounceIn 0.3s;
+        }
+
+        .live-correction-box div {
+            margin-bottom: 2px;
+        }
+
+        .correction-title {
+            font-weight: bold;
+            color: #FF5A5F;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .correct-original {
+            text-decoration: line-through;
+            color: #999;
+        }
+
+        .correct-upgrade {
+            color: #2D9CDB;
+            font-weight: bold;
+        }
+
+        .pronounce-feedback {
+            color: #F2994A;
+            font-weight: bold;
+        }
+
+        /* 音频波形/麦克风控制栏 */
+        .voice-control-pannel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            border-top: 2px dashed #CCC;
+        }
+
+        .waveform-canvas-container {
+            width: 100%;
+            height: 48px;
+            background: #F8F9FA;
+            border: 2px solid var(--charcoal);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #voiceWaveform {
+            width: 100%;
+            height: 100%;
+        }
+
+        .voice-status {
+            font-size: 12px;
+            font-weight: bold;
+            color: #666;
+            text-align: center;
+            height: 16px;
+        }
+
+        .action-tray {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            width: 100%;
+            gap: 10px;
+        }
+
+        /* 录音按钮巨圆润 */
+        .mic-button-doodle {
+            width: 68px;
+            height: 68px;
+            border-radius: 50%;
+            background: var(--primary-orange);
+            border: var(--doodle-border);
+            box-shadow: 0px 5px 0px var(--charcoal);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            transition: all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+        }
+
+        .mic-button-doodle:hover {
+            transform: scale(1.05);
+            box-shadow: 0px 7px 0px var(--charcoal);
+        }
+
+        .mic-button-doodle:active, .mic-button-doodle.recording {
+            transform: scale(0.95) translateY(4px);
+            box-shadow: 0px 1px 0px var(--charcoal);
+            background: #FF5A5F !important;
+        }
+
+        /* 文本替换按钮 */
+        .keyboard-toggle-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 2px solid var(--charcoal);
+            background: #FFF;
+            box-shadow: 2px 2px 0px var(--charcoal);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+        .keyboard-toggle-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0px 0px 0px var(--charcoal);
+        }
+
+        .text-input-row {
+            display: none;
+            width: 100%;
+            gap: 8px;
+            margin-top: 4px;
+        }
+        .text-input-row.active {
+            display: flex;
+        }
+        .text-input-row input {
+            flex: 1;
+        }
+
+        /* --- 3. 报告结算面 (Summary Screen) --- */
+        .summary-title {
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 12px;
+            position: relative;
+        }
+
+        .badge-doodle {
+            width: 90px;
+            height: 90px;
+            background: var(--primary-yellow);
+            border: var(--doodle-border);
+            border-radius: 50%;
+            font-size: 32px;
+            font-weight: 900;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 4px 4px 0px var(--charcoal);
+            margin: 0 auto 16px auto;
+            transform: rotate(-5deg);
+        }
+        .badge-doodle span {
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        /* 评分进度条 */
+        .metric-row {
+            margin-bottom: 12px;
+        }
+
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .bar-container-doodle {
+            width: 100%;
+            height: 20px;
+            background: #FFF;
+            border: 2.5px solid var(--charcoal);
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .bar-fill-doodle {
+            height: 100%;
+            background: var(--primary-blue);
+            border-right: 2px solid var(--charcoal);
+            width: 0%;
+            transition: width 1s cubic-bezier(0.175, 0.885, 0.32, 1);
+        }
+
+        /* 学习清单板块 */
+        .report-section-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin: 16px 0 8px 0;
+            border-left: 5px solid var(--primary-orange);
+            padding-left: 8px;
+        }
+
+        .correction-card-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .summary-card {
+            border: 2px solid var(--charcoal);
+            border-radius: 16px;
+            padding: 10px 12px;
+            font-size: 13px;
+            background: #FFF;
+            box-shadow: 2px 2px 0px var(--charcoal);
+        }
+
+        /* 底部提示吐司 (Toast Notification) */
+        .toast-doodle {
+            position: absolute;
+            left: 50%;
+            bottom: 80px;
+            transform: translateX(-50%) translateY(100px);
+            background: #FFF;
+            border: var(--doodle-border);
+            border-radius: 16px;
+            padding: 10px 20px;
+            font-family: var(--font-cartoon);
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--charcoal);
+            box-shadow: 4px 4px 0px var(--charcoal);
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .toast-doodle.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        /* --- 4. 架构规范查看 (Architecture Drawer) --- */
+        .drawer-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.4);
+            z-index: 100;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .drawer-content {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 85%;
+            background: var(--bg-color);
+            background-image: radial-gradient(#E8E5D5 1.5px, transparent 1.5px);
+            background-size: 20px 20px;
+            border-top: 4px solid var(--charcoal);
+            border-top-left-radius: 30px;
+            border-top-right-radius: 30px;
+            z-index: 101;
+            transform: translateY(100%);
+            transition: transform 0.35s cubic-bezier(0.1, 0.76, 0.55, 0.94);
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+        }
+
+        .drawer-overlay.open {
+            display: block;
+            opacity: 1;
+        }
+
+        .drawer-content.open {
+            transform: translateY(0);
+        }
+
+        .drawer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2.5px solid var(--charcoal);
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+        }
+
+        .drawer-close {
+            font-size: 28px;
+            cursor: pointer;
+            background: var(--primary-orange);
+            border: 2px solid var(--charcoal);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 2px 2px 0px var(--charcoal);
+        }
+        .drawer-close:active {
+            transform: translateY(2px);
+            box-shadow: 0px 0px 0px var(--charcoal);
+        }
+
+        .drawer-body {
+            flex: 1;
+            overflow-y: auto;
+            font-family: 'Comic Neue', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .tab-menu {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 14px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 6px 10px;
+            font-size: 12px;
+            border: 2px solid var(--charcoal);
+            background: #FFF;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .tab-btn.active {
+            background-color: var(--primary-yellow);
+            box-shadow: 2px 2px 0px var(--charcoal);
+        }
+
+        .architecture-code {
+            background: #252830;
+            color: #C0C5CE;
+            padding: 12px;
+            border-radius: 12px;
+            border: 2px solid var(--charcoal);
+            overflow-x: auto;
+            font-family: monospace;
+            font-size: 11px;
+            height: auto;
+            max-height: 400px;
+            margin-top: 8px;
+        }
+
+        .architecture-code span.keyword { color: #82B1FF; }
+        .architecture-code span.string { color: #A5D6A7; }
+        .architecture-code span.comment { color: #F48FB1; font-style: italic; }
+
+        /* 滑块动画定义 */
+        @keyframes bounceIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            70% { transform: scale(1.05); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 漂浮字母背景层 -->
+    <div id="letters-background"></div>
+
+    <!-- 手机 App 界面主容器 -->
+    <div class="app-container">
+        <!-- 顶部装饰状态栏 -->
+        <div class="statusbar-doodle">
+            <span id="system-time">16:14</span>
+            <div class="icons">
+                <span>📶</span>
+                <span>🔋 100%</span>
+            </div>
+        </div>
+
+        <div class="app-screen">
+
+            <!-- ================= SCREEN 1: 首页 (场景选择) ================= -->
+            <div id="screen-home" class="screen active">
+                <div class="title-container">
+                    <h1>Doodle Speak 📢</h1>
+                    <div class="title-underline"></div>
+                </div>
+
+                <div class="card-doodle" style="text-align: center; margin-top: -6px;">
+                    <p style="font-size: 14px; font-weight: bold; line-height: 1.5; color: #555;">
+                        🎨 欢迎来到涂鸦英语口语陪练！<br>
+                        选择一个真实生活场景，开启手绘风沉浸式对话！
+                    </p>
+                </div>
+
+                <div class="report-section-title">✨ 精选实战场景</div>
+                <div class="scene-grid">
+                    <!-- 面试场景 -->
+                    <div class="scene-card card-doodle" onclick="selectScene('interview', '👨‍💼 软件大厂面试', 'Job Interview', '嗨！我是招聘官 Alex，欢迎参加 Google 软件工程师面试，你能介绍一下自己吗？')">
+                        <span class="emoji">👨‍💼</span>
+                        <h3>名企求职面试</h3>
+                        <p>Job Interview</p>
+                    </div>
+
+                    <!-- 点餐场景 -->
+                    <div class="scene-card card-doodle" onclick="selectScene('order', '🍔 麦当劳超值点餐', 'Fastfood Ordering', 'Hello there! Welcome to McDoodles. What can I get started for you today?')">
+                        <span class="emoji">🍔</span>
+                        <h3>餐厅快餐点餐</h3>
+                        <p>Food Ordering</p>
+                    </div>
+
+                    <!-- 会议场景 -->
+                    <div class="scene-card card-doodle" onclick="selectScene('meeting', '🗣️ 商务周会报告', 'Weekly Meeting', 'Hi team, let\'s bring up the quarterly performance review. Who wants to go first?')">
+                        <span class="emoji">🗣️</span>
+                        <h3>商务周会报告</h3>
+                        <p>Business Meeting</p>
+                    </div>
+
+                    <!-- 机场出关场景 -->
+                    <div class="scene-card card-doodle" onclick="selectScene('airport', '✈️ 机场海关问询', 'Customs Clearance', 'Good day. Welcome to London Heathdoodle Airport. What is the purpose of your visit?')">
+                        <span class="emoji">✈️</span>
+                        <h3>机场海关问询</h3>
+                        <p>Customs Check</p>
+                    </div>
+                </div>
+
+                <div class="card-doodle" style="padding: 14px;">
+                    <div style="font-size: 14px; font-weight: bold; margin-bottom: 8px;">✏️ 跑个题？自定义魔法场景：</div>
+                    <div class="custom-scene-box">
+                        <input type="text" id="custom-scene-input" class="input-cartoon" placeholder="输入你想和AI约会的具体情景..." />
+                        <button class="btn-cartoon btn-blue" style="margin:0; padding:10px 14px; font-size:14px;" onclick="startCustomScene()">
+                            Go!
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 底部查看规范的按钮 -->
+                <button class="btn-cartoon btn-accent" style="width: 100%; margin-top: auto;" onclick="showToast('正在加载后端流式架构规范'); openDrawer()">
+                    📐 查看“流式语音接口及评分逻辑”架构
+                </button>
+            </div>
+
+            <!-- ================= SCREEN 2: 对话练习室 (Chat) ================= -->
+            <div id="screen-chat" class="screen">
+                <!-- 对话头部 -->
+                <div class="chat-header">
+                    <span class="back-icon" onclick="exitChatRoom()">👈</span>
+                    <div class="avatar-panel">
+                        <div class="mascot-avatar" id="chat-avatar">🐱</div>
+                        <div class="coach-info">
+                            <h4 id="scene-display-title">软件大厂面试</h4>
+                            <span id="scene-display-english">Job Interview</span>
+                        </div>
+                    </div>
+                    <button class="btn-cartoon btn-orange" style="box-shadow: 2px 2px 0px var(--charcoal); font-size:12px; padding: 6px 12px; margin:0;" onclick="finishSession()">
+                        🏁 结束
+                    </button>
+                </div>
+
+                <!-- 消息展示面板 -->
+                <div class="message-stream" id="chat-messages">
+                    <!-- 消息列表动态插入 -->
+                </div>
+
+                <!-- 语音麦克风/交互面板 -->
+                <div class="voice-control-pannel">
+                    <div class="voice-status" id="speak-status-text">
+                        点击麦克风，开启实时流式音轨
+                    </div>
+
+                    <div class="waveform-canvas-container">
+                        <canvas id="voiceWaveform"></canvas>
+                    </div>
+
+                    <div class="action-tray">
+                        <div class="keyboard-toggle-btn" title="输入文本" onclick="toggleInputMethod()">
+                            ⌨️
+                        </div>
+
+                        <!-- 麦克风录音按钮 -->
+                        <div class="mic-button-doodle" id="mic-action-btn" onclick="handleMicClick()">
+                            🎤
+                        </div>
+
+                        <div class="keyboard-toggle-btn" title="查看当前实时语法纠错规则" onclick="showToast('AI纠错采用流式滑动窗口，实时监测短语缺陷')">
+                            🛡️
+                        </div>
+                    </div>
+
+                    <!-- 键盘输入区 -->
+                    <div class="text-input-row" id="text-input-panel">
+                        <input type="text" id="chat-text-input" class="input-cartoon" placeholder="用英语输入你的回答..." onkeydown="handleTextInputKeyDown(event)" />
+                        <button class="btn-cartoon btn-blue" style="margin:0; padding:10px 18px;" onclick="sendTextAnswer()">
+                            Send
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= SCREEN 3: 口语课后报告 (Summary) ================= -->
+            <div id="screen-summary" class="screen">
+                <div class="title-container">
+                    <h1 class="summary-title" style="font-size: 24px;">📝 本期口语考评报告</h1>
+                    <div class="title-underline" style="background-color: var(--bubble-user);"></div>
+                </div>
+
+                <div class="badge-doodle" id="summary-badge-grade">
+                    A-
+                    <span>Grade</span>
+                </div>
+
+                <div class="card-doodle" style="padding: 16px; margin-bottom: 16px;">
+                    <div style="font-size: 15px; font-weight: bold; text-align: center; margin-bottom: 12px;">🏆 可量化核心能力雷达指标</div>
+                    
+                    <!-- 发音评测 -->
+                    <div class="metric-row">
+                        <div class="metric-header">
+                            <span>🗣️ 发音评测 (Pronunciation)</span>
+                            <span id="metric-p-val">82%</span>
+                        </div>
+                        <div class="bar-container-doodle">
+                            <div class="bar-fill-doodle" id="bar-p"></div>
+                        </div>
+                    </div>
+
+                    <!-- 语法精准度 -->
+                    <div class="metric-row">
+                        <div class="metric-header">
+                            <span>🛡️ 语法准确 (Grammar Accuracy)</span>
+                            <span id="metric-g-val">88%</span>
+                        </div>
+                        <div class="bar-container-doodle">
+                            <div class="bar-fill-doodle" id="bar-g" style="background-color: var(--primary-orange)"></div>
+                        </div>
+                    </div>
+
+                    <!-- 流利度分析 -->
+                    <div class="metric-row">
+                        <div class="metric-header">
+                            <span>⚡ 实时流利度 (Fluency Meter)</span>
+                            <span id="metric-f-val">76%</span>
+                        </div>
+                        <div class="bar-container-doodle">
+                            <div class="bar-fill-doodle" id="bar-f" style="background-color: var(--accent-blue)"></div>
+                        </div>
+                    </div>
+
+                    <!-- 词汇丰富度 -->
+                    <div class="metric-row">
+                        <div class="metric-header">
+                            <span>🧠 词汇丰富度 (Vocabulary richness)</span>
+                            <span id="metric-v-val">85%</span>
+                        </div>
+                        <div class="bar-container-doodle">
+                            <div class="bar-fill-doodle" id="bar-v" style="background-color: var(--primary-yellow)"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="report-section-title">💡 口语纠错与表达升级清单</div>
+                <div class="correction-card-list" id="summary-corrections">
+                    <!-- 结算纠错动态填充 -->
+                </div>
+
+                <div class="report-section-title">🌱 AI 客服学习建议</div>
+                <div class="card-doodle" style="font-size:13px; line-height: 1.5; background: #FFFDF0;">
+                    🚩 <b>核心诊断：</b> 您的发音整体非常标准，能够熟练表达观点。但有一些常见语法问题（如主谓一致和过去时态容易混淆）。词汇表达也属于高频口头词，可以增加一些高阶词汇。
+                    <br><br>
+                    建议每天练习 3 次<b>麦当劳点餐</b>和<b>商务会议</b>，增加固定搭配和专业名词输入！
+                </div>
+
+                <button class="btn-cartoon btn-blue" style="width:100%; margin-top: 15px;" onclick="goToHome()">
+                    🏠 返回首页再次训练
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 顶部/弹窗式 提示浮层 (Toast UI) -->
+    <div class="toast-doodle" id="app-toast">
+        💡 <span id="toast-message">即将打开 XX 功能</span>
+    </div>
+
+    <!-- ================= 核心架构设计弹窗 Drawer ================= -->
+    <div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+    <div class="drawer-content" id="drawer-content">
+        <div class="drawer-header">
+            <h3 style="font-size: 18px;">📐 后端语音引擎 & 流式评分架构</h3>
+            <span class="drawer-close" onclick="closeDrawer()">×</span>
+        </div>
+
+        <div class="tab-menu">
+            <button class="tab-btn active" onclick="switchDrawerTab('audio-flow')">流式语音交互</button>
+            <button class="tab-btn" onclick="switchDrawerTab('eval-logic')">发音评测模型</button>
+            <button class="tab-btn" onclick="switchDrawerTab('ws-protocol')">WebSocket 协议</button>
+        </div>
+
+        <!-- 标签页1: 流式语音处理流程 -->
+        <div class="drawer-body tab-section" id="section-audio-flow">
+            <p><strong>💎 端到端极速口语练习：流式多线程微环架构</strong></p>
+            <p style="margin: 6px 0 12px 0; color:#555; background: #FFF9E6; border:1px dashed #DDD; padding: 6px; border-radius: 6px;">
+                在流式实时口语场景中，最核心的难点是<span>延迟 (Latency)</span> 和 <span>纠错介入时机</span>。以下为设计的流式数据交换生命周期：
+            </p>
+            <ol style="padding-left: 18px; margin-bottom: 12px;">
+                <li><b>客户端分帧录制：</b> 客户端使用 Web Audio API / Android AudioRecord 以 16kHz/16bit 单声道持续录制，利用滑动时间窗口进行<strong>VAD (智能静音检测)</strong>。</li>
+                <li><b>流式高频封包推送：</b> 采用 <strong>WebSocket 双工协议</strong>。每隔 40ms 打包一个二进制 PCM 语音帧发送到网关（避免长连接 HTTP 上传造成的头部宽带负担）。</li>
+                <li><b>后端多路异步队列解包：</b> 后端语音网关使用协程消费数据流。一路由 <strong>Whisper-Streaming / ASR 引擎</strong> 进行增量实时语音识别、一路由 <strong>Kaldi / Wav2Vec-phoneme 算子</strong>进行精细音节对齐计算发音得分。</li>
+                <li><b>大模型流式语法纠正：</b> ASR 每拼装出一个完整句子（由 VAD 中断信号切片），立即由 <b>Gemini-3.5-flash</b> 并行计算，返回语法纠错，绝不延迟等待，实现“边说边评”。</li>
+            </ol>
+
+            <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100%' height='80' viewBox='0 0 400 80'><rect width='400' height='80' rx='10' fill='%23F4F3ED' stroke='%232C2C2C' stroke-width='2'/><text x='10' y='25' font-family='sans-serif' font-size='11' font-weight='bold'>Client (PCM)</text><path d='M80 20 L130 20' stroke='%232C2C2C' stroke-width='2' marker-end='arrow'/><text x='140' y='25' font-family='sans-serif' font-size='11' font-weight='bold'>WebSocket Gateway</text><text x='140' y='45' font-family='sans-serif' font-size='9' fill='%23666'>Multiplex Queue</text><path d='M240 20 L300 20' stroke='%232C2C2C' stroke-width='2'/><text x='310' y='25' font-family='sans-serif' font-size='10' fill='%23E25C38' font-weight='bold'>Kaldi (Phonetic Alignment)</text><text x='310' y='45' font-family='sans-serif' font-size='10' fill='%232D9CDB' font-weight='bold'>Whisper (ASR Text Stream)</text><text x='310' y='65' font-family='sans-serif' font-size='10' fill='%2356B280' font-weight='bold'>Gemini (Grammar Correction)</text></svg>" style="width:100%; margin: 8px 0; border:2px solid var(--charcoal); border-radius:10px;" />
+            
+            <p style="margin-top: 8px;"><strong>📡 Java / Kotlin 流式网络接口层伪代码示范：</strong></p>
+            <div class="architecture-code">
+                <span class="comment">// 开启流式音频连接管道</span><br>
+                <span class="keyword">val</span> client = OkHttpClient.Builder()<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;.readTimeout(60, TimeUnit.SECONDS)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;.build()<br>
+                <span class="keyword">val</span> request = Request.Builder().url(<span class="string">"wss://api.doodlespeak.com/v1/stream"</span>).build()<br>
+                <span class="keyword">val</span> webSocket = client.newWebSocket(request, <span class="keyword">object</span> : WebSocketListener() {<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">override fun</span> onMessage(webSocket: WebSocket, text: String) {<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// 实时收取 ASR 识别切片与评分反馈</span><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">val</span> resp = parseServerResponse(text)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;updateChatBubbleLive(resp.asrText, resp.pronunciationScore)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+                })<br>
+                <span class="comment">// 持续采集分包发送流式数据 (1024 Bytes 每帧)</span><br>
+                audioRecord.startRecording()<br>
+                GlobalScope.launch(Dispatchers.IO) {<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">while</span> (recording) {<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;audioRecord.read(buffer, 0, bufferSize)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;webSocket.send(ByteString.of(buffer))<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+                }
+            </div>
+        </div>
+
+        <!-- 标签页2: 发音评测与纠错评估机制 -->
+        <div class="drawer-body tab-section" id="section-eval-logic" style="display: none;">
+            <p><strong>🏆 考评评估核心算法逻辑 (Pronunciation Alignment)</strong></p>
+            <p style="margin-top: 6px;">发音评测引擎采用标准英语发音常模 (Phonetic Template Matching)。通过将用户说出的音节与标准的音节对应层进行<b>动态时间规整 (DTW)</b>、计算各音素的发音特征向量偏差度：</p>
+            
+            <div class="architecture-code" style="margin-bottom: 12px;">
+                Score_Pronunciation = w1 * Ph_Match + w2 * Accent_Dis + w3 * Segment_Speed<br>
+                <span class="comment">1. Ph_Match (音素相似度): 提取MFCC特征，使用DNN模型声学网络进行后验概率打分;</span><br>
+                <span class="comment">2. Accent_Dis (声调重音离散度): 检验重音节音高(Pitch)、能量包络(Energy Envelope)是否在允许偏差内;</span><br>
+                <span class="comment">3. Segment_Speed (音节流畅度): 字间停顿、辅音连读规律分析;</span>
+            </div>
+
+            <p><strong>🛡️ 流式语法改写判定逻辑 (Grammar Rewriting Engine)</strong></p>
+            <p>大模型解析提示词（System Prompt）规则：进行短距离短段纠错（Live Prompt）和长距离语义（Summary Prompt）两级分析：</p>
+            <div class="architecture-code">
+                ROLE: English Oral Training Coach<br>
+                TASK: Parse USER_RAW_TEXT and return a formatted JSON list of grammatical errors.<br>
+                FORMAT REQUIREMENTS:<br>
+                {<br>
+                &nbsp;&nbsp;<span class="string">"corrections"</span>: [<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;{<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"errorType"</span>: <span class="string">"GRAMMAR"</span>,<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"original"</span>: <span class="string">"I have went to there yesterday"</span>,<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"revised"</span>: <span class="string">"I went there yesterday"</span>,<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"reason"</span>: <span class="string">"Yesterday triggers past simple tense without 'have'. Also 'there' is an adverb of place, omitting preposition 'to'."</span><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;},<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;{<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"errorType"</span>: <span class="string">"VOCAB_UPGRADE"</span>,<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"original"</span>: <span class="string">"It is very good"</span>,<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"revised"</span>: <span class="string">"It is outstanding / exceptional"</span>,<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"reason"</span>: <span class="string">"Elevate high-frequency words to advance your professional expression."</span><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+                &nbsp;&nbsp;]<br>
+                }
+            </div>
+        </div>
+
+        <!-- 标签页3: WebSocket 数据包规范 -->
+        <div class="drawer-body tab-section" id="section-ws-protocol" style="display: none;">
+            <p><strong>📲 全双工流式网络交换协议报文格式 (JSON frame Spec)</strong></p>
+            <p style="margin: 8px 0;">由于是低时延通信，所有的状态变更（VAD 状态机，静音检测，数据上送）均高度格式化：</p>
+
+            <span style="font-size:11px; font-weight: bold; color: #2D9CDB;">1. 客户端握手帧 (Init Config Connection)</span>
+            <div class="architecture-code" style="margin-bottom: 12px; height: 110px;">
+                {<br>
+                &nbsp;&nbsp;<span class="string">"event"</span>: <span class="string">"audio_start"</span>,<br>
+                &nbsp;&nbsp;<span class="string">"scene"</span>: <span class="string">"fastfood_ordering"</span>,<br>
+                &nbsp;&nbsp;<span class="string">"audio_format"</span>: <span class="string">"raw_pcm_16k_16bit"</span>,<br>
+                &nbsp;&nbsp;<span class="string">"userId"</span>: <span class="string">"doodle_user_992"</span><br>
+                }
+            </div>
+
+            <span style="font-size:11px; font-weight: bold; color: #FF9F43;">2. 客户端实时音频帧 (Live binary socket)</span>
+            <div class="architecture-code" style="margin-bottom: 12px; height: 50px;">
+                [ArrayBuffer representing 40ms binary linear PCM audio frames]
+            </div>
+
+            <span style="font-size:11px; font-weight: bold; color: #10AC84;">3. 服务端单句切片评测反馈帧 (VAD-End Sentence Feedback)</span>
+            <div class="architecture-code" style="height: 190px;">
+                {<br>
+                &nbsp;&nbsp;<span class="string">"event"</span>: <span class="string">"sentence_complete"</span>,<br>
+                &nbsp;&nbsp;<span class="string">"sentence_id"</span>: <span class="string">"s_1001"</span>,<br>
+                &nbsp;&nbsp;<span class="string">"recognized_text"</span>: <span class="string">"I would like to ordering a double cheeseburger"</span>,<br>
+                &nbsp;&nbsp;<span class="string">"pronunciation_score"</span>: 81,<br>
+                &nbsp;&nbsp;<span class="string">"grammar_correction"</span>: {<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"has_error"</span>: <span class="keyword">true</span>,<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"wrong_word"</span>: <span class="string">"ordering"</span>,<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"correct_word"</span>: <span class="string">"order"</span>,<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"description"</span>: <span class="string">"'would like to' takes bare infinitive verb."</span><br>
+                &nbsp;&nbsp;}<br>
+                }
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // === 系统时间驱动 ===
+        function updateTime() {
+            const now = new Date();
+            let hours = now.getHours().toString().padStart(2, '0');
+            let minutes = now.getMinutes().toString().padStart(2, '0');
+            document.getElementById('system-time').innerText = `${hours}:${minutes}`;
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // === 动画飘浮字母背景生成器 ===
+        const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!?.";
+        const lettersBg = document.getElementById("letters-background");
+
+        // 字母无规则旋转与飘动时钟限制
+        function spawnLetters() {
+            lettersBg.innerHTML = "";
+            const density = 25; // 字母密度
+            for (let i = 0; i < density; i++) {
+                const span = document.createElement("span");
+                span.className = "floating-letter";
+                span.innerText = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+                
+                // 随机样式属性
+                span.style.left = `${Math.random() * 95}%`;
+                span.style.top = `${Math.random() * 100}vh`; // 增加初始高度纵深
+                span.style.fontSize = `${16 + Math.random() * 32}px`;
+                span.style.opacity = `${0.04 + Math.random() * 0.08}`;
+                
+                const driftDuration = 12 + Math.random() * 18; // 飘完长达12s~30s
+                const driftDelay = -1 * (Math.random() * driftDuration); // 负延时，防止首屏加载一窝蜂从底下钻出来
+                
+                span.style.animationDuration = `${driftDuration}s`;
+                span.style.animationDelay = `${driftDelay}s`;
+                
+                lettersBg.appendChild(span);
+            }
+        }
+        spawnLetters();
+
+        // 当页面大小变化时，重新分配字母位置
+        window.onresize = spawnLetters;
+
+        // === 全局Toast弹出层控制 ===
+        let toastTimeout;
+        function showToast(text, emoji = "💡") {
+            const toast = document.getElementById("app-toast");
+            document.getElementById("toast-message").innerText = text;
+            toast.className = "toast-doodle show";
+            
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.className = "toast-doodle";
+            }, 2500);
+        }
+
+        // === Navigation 屏幕流式转场管理 ===
+        function switchScreen(screenId) {
+            document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+            const target = document.getElementById(screenId);
+            if (target) {
+                target.classList.add("active");
+                // 触发特定的屏幕加载回调
+                if (screenId === "screen-home") {
+                    speakSynthesisPause();
+                }
+            }
+        }
+
+        // === 场景控制与对话引擎数据绑定 ===
+        let currentScene = null;
+        let dialogueHistory = [];
+        let simulationTimer = null;
+        
+        const feedbackPool = {
+            'interview': [
+                {
+                    aiPrompt: "That sounds impressive! What would you say is your biggest technical achievement using Jetpack Compose, and what challenges did you face?",
+                    expectedCorrections: {
+                        userText: "I worked on a app which has huge list and scrolling was very bad, but I fix it with lazy column",
+                        pronounce: "lazy column /'leɪzi 'kɒləm/ - 'column' 中的 n 字母发音常被不规范发出 /'kɒlʌmn/，注意尾音省略。",
+                        corrected: "I worked on <strong class='correct-original'>a</strong> <strong class='correct-upgrade'>an</strong> app that <strong class='correct-original'>has</strong> <strong class='correct-upgrade'>had a</strong> huge list, and scrolling was <strong class='correct-original'>very bad</strong> <strong class='correct-upgrade'>extremely laggy</strong>, but I <strong class='correct-original'>fix</strong> <strong class='correct-upgrade'>fixed</strong> it using high-performance LazyColumns.",
+                        scoreP: 84, scoreG: 78, scoreF: 70, scoreV: 80
+                    }
+                },
+                {
+                    aiPrompt: "Excellent. LazyColumn indeed mitigates layout recompilation. How do you manage UI architecture and reactive state flows inside your Jetpack Compose screens?",
+                    expectedCorrections: {
+                        userText: "I using Mutablestateflow in my viewmodel and collect it inside the compose UI with lifecycle helper.",
+                        pronounce: "viewmodel /'vju: ,mɒd.əl/ - 避开重音后置，重点重读在 view 单词上。",
+                        corrected: "I <strong class='correct-original'>using</strong> <strong class='correct-upgrade'>use</strong> MutableStateFlow in my ViewModel and collect it inside the Compose UI <strong class='correct-original'>with</strong> <strong class='correct-upgrade'>by utilizing</strong> lifecycle-aware helpers like collectAsStateWithLifecycle.",
+                        scoreP: 88, scoreG: 92, scoreF: 80, scoreV: 88
+                    }
+                }
+            ],
+            'order': [
+                {
+                    aiPrompt: "Sure! What side and drink would you like to accompany with your big burger? We have freshly fried doodles-fries and soda.",
+                    expectedCorrections: {
+                        userText: "I want a small french fries and I would choosing a orange juice without ice please.",
+                        pronounce: "fries /fraɪz/ - 注意r的摩擦音，不要发成 'flies' (小苍蝇)。",
+                        corrected: "I <strong class='correct-original'>want a</strong> <strong class='correct-upgrade'>would like to have</strong> small French fries, and <strong class='correct-original'>would choosing a</strong> <strong class='correct-upgrade'>would choose an</strong> orange juice without ice, please.",
+                        scoreP: 74, scoreG: 82, scoreF: 75, scoreV: 82
+                    }
+                },
+                {
+                    aiPrompt: "Got it! A small French fries and an ice-free orange juice. Regular or premium size on fries? Will you pay by Cash or credit card?",
+                    expectedCorrections: {
+                        userText: "regular size is okay, I will pay it with card. Can you give me extra ketchup because I like it?",
+                        pronounce: "ketchup /'ketʃ.ʌp/ - 辅音/p/轻呼气发音，注意不要吞尾音。",
+                        corrected: "regular size is <strong class='correct-original'>okay</strong> <strong class='correct-upgrade'>perfect</strong>, and I will pay <strong class='correct-original'>it with</strong> <strong class='correct-upgrade'>by</strong> card. Can you <strong class='correct-original'>give me extra ketchup because I like it</strong> <strong class='correct-upgrade'>provide extra ketchup as well</strong>?",
+                        scoreP: 80, scoreG: 85, scoreF: 78, scoreV: 80
+                    }
+                }
+            ],
+            'meeting': [
+                {
+                    aiPrompt: "Thanks for sharing. Let's dig deeper into the KPI metrics. The marketing performance seems stagnant. What are your core strategies for Q3 growth?",
+                    expectedCorrections: {
+                        userText: "We should focus on social media ads. It have cheap conversion and we get more leads easy.",
+                        pronounce: "social /'səʊ.ʃəl/ - 注意发音嘴型是圆润的双元音 /əʊ/，不要发成 /'sɔ:ʃəl/。",
+                        corrected: "We should focus on social media advertising. <strong class='correct-original'>It have</strong> <strong class='correct-upgrade'>They offer a</strong> <strong class='correct-original'>cheap</strong> <strong class='correct-upgrade'>highly cost-effective</strong> conversion and allow us to <strong class='correct-original'>get more leads easy</strong> <strong class='correct-upgrade'>acquire leads more easily</strong>.",
+                        scoreP: 82, scoreG: 76, scoreF: 80, scoreV: 86
+                    }
+                }
+            ],
+            'airport': [
+                {
+                    aiPrompt: "Welcome to London! How long are you planning to stay in the UK, and where will you reside during this period?",
+                    expectedCorrections: {
+                        userText: "I will staying for two week at the Hilton London downtown hotel.",
+                        pronounce: "Hilton /'hɪltən/ - 清晰发出舌侧音 /l/，不要混淆省略。",
+                        corrected: "I <strong class='correct-original'>will staying</strong> <strong class='correct-upgrade'>will be staying</strong> for two <strong class='correct-original'>week</strong> <strong class='correct-upgrade'>weeks</strong> at the Hilton London Downtown Hotel.",
+                        scoreP: 78, scoreG: 84, scoreF: 72, scoreV: 80
+                    }
+                }
+            ]
+        };
+
+        // 默认通用纠错模板(针对未知提示)
+        const defaultCorrections = {
+            userText: "I like practice English here because it can helping me upgrade skill.",
+            pronounce: "practice /'præk.tɪs/ - 辅音卷舌 /r/ 需轻柔发出，避免读成 'plactice' (重r音音变)。",
+            corrected: "I like <strong class='correct-original'>practice</strong> <strong class='correct-upgrade'>practicing</strong> English here because <strong class='correct-original'>it can helping me upgrade skill</strong> <strong class='correct-upgrade'>it helps me polish my communicative skills</strong>.",
+            scoreP: 85, scoreG: 82, scoreF: 79, scoreV: 84
+        };
+
+        function selectScene(sceneId, name, englishName, aiStarter) {
+            showToast(`已为您装载场景: ${name}`, "🎬");
+            currentScene = {
+                id: sceneId,
+                title: name,
+                english: englishName,
+                starter: aiStarter,
+                step: 0
+            };
+
+            // 设置头像与标题
+            document.getElementById("scene-display-title").innerText = name;
+            document.getElementById("scene-display-english").innerText = englishName;
+            
+            // 挑选场景特质化可爱头像
+            const avatars = { interview: "👨‍💼", order: "🍔", meeting: "🗣️", airport: "✈️" };
+            document.getElementById("chat-avatar").innerText = avatars[sceneId] || "🐱";
+
+            // 初始化聊天流
+            dialogueHistory = [];
+            const messagesWrap = document.getElementById("chat-messages");
+            messagesWrap.innerHTML = "";
+            
+            // 切换屏幕
+            switchScreen("screen-chat");
+
+            // 触发AI迎宾句
+            addChatMessage("ai", "AI Coach Alex", aiStarter);
+            speakText(aiStarter);
+        }
+
+        function startCustomScene() {
+            const val = document.getElementById("custom-scene-input").value.trim();
+            if (!val) {
+                showToast("请输入您的自定义对话环境！", "⚠️");
+                return;
+            }
+            selectScene("custom", `🎨 自定义: ${val}`, "Custom Scene", `Hello! Let's simulate a situation about: "${val}". Please make yourself at home and start our conversation whenever you are ready.`);
+        }
+
+        // === 退出聊天室 ===
+        function exitChatRoom() {
+            if (confirm("当前正在进行对话，确定要退出并丢失进度吗？")) {
+                switchScreen("screen-home");
+            }
+        }
+
+        // === 聊天消息动态生成并渲染 ===
+        function addChatMessage(sender, name, text, correctionObj = null) {
+            const wrap = document.getElementById("chat-messages");
+            const container = document.createElement("div");
+            container.className = `chat-bubble-container ${sender}`;
+
+            const label = document.createElement("div");
+            label.className = "bubble-label";
+            label.innerText = (sender === "ai" ? "🤖 " : "👤 ") + name;
+
+            const bubble = document.createElement("div");
+            bubble.className = "bubble-content";
+            bubble.innerHTML = text;
+
+            container.appendChild(label);
+            container.appendChild(bubble);
+
+            // 如果该语句有纠错内容，嵌入在气泡底端
+            if (correctionObj) {
+                const corrBox = document.createElement("div");
+                corrBox.className = "live-correction-box";
+                corrBox.innerHTML = `
+                    <div class="correction-title">💡 实时语法与语音改写方案：</div>
+                    <div style="margin-top:4px;">🌱 <b>原句规范:</b> "${correctionObj.userText}"</div>
+                    <div>🛠️ <b>表达改进:</b> <span>${correctionObj.corrected}</span></div>
+                    <div>🗣️ <b>发言咬字:</b> <span class="pronounce-feedback">${correctionObj.pronounce}</span></div>
+                `;
+                container.appendChild(corrBox);
+            }
+
+            wrap.appendChild(container);
+
+            // 滚动到最底端 (配合柔顺缓动)
+            wrap.scrollTo({
+                top: wrap.scrollHeight,
+                behavior: 'smooth'
+            });
+
+            // 保存到记录供报告页评估
+            dialogueHistory.push({
+                sender: sender,
+                text: text,
+                correction: correctionObj
+            });
+        }
+
+        // === 输入方式切换 (Keyboard vs Record) ===
+        function toggleInputMethod() {
+            const pannel = document.getElementById("text-input-panel");
+            if (pannel.classList.contains("active")) {
+                pannel.classList.remove("active");
+                document.getElementById("speak-status-text").style.display = "block";
+                showToast("已切换为流式语音模式", "🎤");
+            } else {
+                pannel.classList.add("active");
+                document.getElementById("speak-status-text").style.display = "none";
+                document.getElementById("chat-text-input").focus();
+                showToast("已激活涂鸦式键盘输入", "⌨️");
+            }
+        }
+
+        // === 键盘输入回复 ===
+        function sendTextAnswer() {
+            const input = document.getElementById("chat-text-input");
+            const val = input.value.trim();
+            if (!val) return;
+
+            addChatMessage("user", "You (Text)", val);
+            input.value = "";
+            showToast("正在通过大模型进行流式分流纠偏...");
+            
+            // 稍等模拟AI回复
+            triggerSimulatedAiReply(val);
+        }
+
+        function handleTextInputKeyDown(event) {
+            if (event.key === "Enter") {
+                sendTextAnswer();
+            }
+        }
+
+        // === 麦克风录音控制 (包含 Web 语音听写) ===
+        let isRecording = false;
+        let speechRecognition = null;
+        let micHoldCheck = null;
+
+        // 初始化 Web Speech API (针对高级移动客户端支持)
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            speechRecognition = new SpeechRec();
+            speechRecognition.continuous = false;
+            speechRecognition.interimResults = false;
+            speechRecognition.lang = 'en-US'; // 识别英语
+
+            speechRecognition.onstart = () => {
+                isRecording = true;
+                const btn = document.getElementById("mic-action-btn");
+                btn.classList.add("recording");
+                document.getElementById("speak-status-text").innerHTML = "🟢 正在收听... 释放或再次点击结束并发送";
+                startWaveformAnimation();
+            };
+
+            speechRecognition.onresult = (event) => {
+                const txtResult = event.results[0][0].transcript;
+                if (txtResult) {
+                    addChatMessage("user", "You (Voice)", txtResult);
+                    triggerSimulatedAiReply(txtResult);
+                }
+            };
+
+            speechRecognition.onerror = (e) => {
+                console.error("Speech Rec Error:", e);
+                stopRecordingControls();
+            };
+
+            speechRecognition.onend = () => {
+                stopRecordingControls();
+            };
+        }
+
+        function handleMicClick() {
+            if (!speechRecognition) {
+                // 如果浏览器 WebView 不支持 ASR API，采用模拟录音流程
+                simulateVoiceRecording();
+                return;
+            }
+
+            if (isRecording) {
+                speechRecognition.stop();
+            } else {
+                try {
+                    speechRecognition.start();
+                } catch(e) {
+                    // 若已经被占用，强制抛出模拟
+                    simulateVoiceRecording();
+                }
+            }
+        }
+
+        function stopRecordingControls() {
+            isRecording = false;
+            const btn = document.getElementById("mic-action-btn");
+            btn.classList.remove("recording");
+            document.getElementById("speak-status-text").innerHTML = "点击麦克风，开启实时流式音轨";
+            stopWaveformAnimation();
+        }
+
+        // === ASR不支持情况下的手绘退回模拟 ===
+        function simulateVoiceRecording() {
+            const btn = document.getElementById("mic-action-btn");
+            if (isRecording) {
+                // 停止并发送
+                isRecording = false;
+                btn.classList.remove("recording");
+                document.getElementById("speak-status-text").innerHTML = "点击麦克风，开启实时流式音轨";
+                stopWaveformAnimation();
+                
+                // 模拟录入话术
+                const mockPhrises = [
+                    "I want to order food in McDonald now, please recommend some delicious burger.",
+                    "Hello Alex, glad to meet you. I am a software developer with heavy experience.",
+                    "Yes, in Q3 we must boost sales by improving user retention.",
+                    "I am visiting UK for sightseeing and staying with my family at public hotel."
+                ];
+                
+                const selectedText = mockPhrises[Math.floor(Math.random() * mockPhrises.length)];
+                addChatMessage("user", "You (SimVoice)", selectedText);
+                triggerSimulatedAiReply(selectedText);
+                
+            } else {
+                // 开始录音
+                // 请求宿主(Android)麦克权限并提示
+                showToast("麦克风流式通道已建立，请开始用英文对话！", "🎤");
+                isRecording = true;
+                btn.classList.add("recording");
+                document.getElementById("speak-status-text").innerHTML = "🟢 正在收听麦克风音频... 再次点击发送流式切片";
+                startWaveformAnimation();
+            }
+        }
+
+        // === 动画手绘波形 Equalizer Canvas ===
+        const canvas = document.getElementById("voiceWaveform");
+        const ctx = canvas.getContext("2d");
+        let waveAnimFrame = null;
+        let wavePhase = 0;
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.offsetWidth;
+            canvas.height = canvas.parentElement.offsetHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function drawWaveform() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = "var(--charcoal)";
+            ctx.lineWidth = 3;
+            ctx.lineCap = "round";
+            
+            ctx.beginPath();
+            const sliceWidth = canvas.width / 50;
+            wavePhase += 0.15;
+
+            // 绘制手绘不规则卡通波形
+            for (let i = 0; i < 50; i++) {
+                const x = i * sliceWidth;
+                // 混合正弦波，实现跳动感
+                let amp = Math.sin(i * 0.15 + wavePhase) * Math.cos(i * 0.05 + wavePhase * 0.5);
+                amp = amp * (isRecording ? 18 : 3); // 录制中抖动强化
+                
+                const y = (canvas.height / 2) + amp;
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+            waveAnimFrame = requestAnimationFrame(drawWaveform);
+        }
+        drawWaveform(); // 先静态微动
+
+        function startWaveformAnimation() {
+            // 已在全局逐帧重绘，主要改变振幅
+        }
+
+        function stopWaveformAnimation() {
+            // y值自动收缩
+        }
+
+        // === 模拟AI思考并产生回复纠错机制 ===
+        function triggerSimulatedAiReply(userUtterance) {
+            document.getElementById("speak-status-text").innerHTML = "✍️ AI 正在撰写流位，请稍后...";
+            
+            setTimeout(() => {
+                let pool = feedbackPool[currentScene?.id] || [];
+                let match = null;
+                
+                if (currentScene && currentScene.step < pool.length) {
+                    match = pool[currentScene.step];
+                    currentScene.step += 1;
+                }
+                
+                // 如果是最后一句或自定义，调用万能自适应模型
+                let nextAiSentence = "Wonderful job! You handled it perfectly. Would you like to check out your comprehensive oral scorecard now? Click the Finish button anytime!";
+                let corr = defaultCorrections;
+                
+                if (match) {
+                    nextAiSentence = match.aiPrompt;
+                    corr = match.expectedCorrections;
+                } else {
+                    // 自定义场景反馈
+                    corr = {
+                        userText: userUtterance,
+                        pronounce: "fluent pronunciation and solid conversational flow - 整体发音自然，吞音连词饱满。",
+                        corrected: userUtterance.replace(/\bhave went\b/g, "<strong class='correct-upgrade'>went</strong>")
+                                              .replace(/\bdoing bad\b/g, "<strong class='correct-upgrade'>struggling with</strong>")
+                                              .replace(/\bvery good\b/g, "<strong class='correct-upgrade'>phenomenal</strong>"),
+                        scoreP: 86, scoreG: 89, scoreF: 88, scoreV: 85
+                    };
+                }
+
+                // 注入一次大模型语法改写的反馈
+                addChatMessage("ai", "AI Coach Alex", nextAiSentence, corr);
+                speakText(nextAiSentence);
+                document.getElementById("speak-status-text").innerHTML = "点击麦克风，开启实时流式音轨";
+                
+                // 播放一段通知提示音
+                showToast("已完成单句语音评分与语法校对！", "✅");
+            }, 1200);
+        }
+
+        // === 文本转换为语音输出 TTS (SpeechSynthesis) ===
+        function speakText(text) {
+            if ('speechSynthesis' in window) {
+                // 终止上一次
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                // 推荐选用可爱的声线
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function speakSynthesisPause() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        // === 🏁 课后报告结算页逻辑 (Summary Builder) ===
+        function finishSession() {
+            speakSynthesisPause();
+            showToast("正在通过 ASR 和 LLM 解析全段，生成多维考评雷达...", "🎓");
+            
+            // 稍后转入
+            setTimeout(() => {
+                switchScreen("screen-summary");
+                
+                // 统计多维成绩
+                let count = 0;
+                let sumP = 0, sumG = 0, sumF = 0, sumV = 0;
+                let correctionsList = [];
+
+                dialogueHistory.forEach(item => {
+                    if (item.sender === 'user' && item.correction) {
+                        count++;
+                        sumP += item.correction.scoreP;
+                        sumG += item.correction.scoreG;
+                        sumF += item.correction.scoreF;
+                        sumV += item.correction.scoreV;
+                        correctionsList.push(item.correction);
+                    }
+                });
+
+                // 容错（若没有对话直接结算，展示模板数据）
+                if (count === 0) {
+                    sumP = 82; sumG = 88; sumF = 76; sumV = 85;
+                    correctionsList = [
+                        {
+                            userText: "I want a small french fries",
+                            corrected: "I <strong class='correct-original'>want a</strong> <strong class='correct-upgrade'>would like to have</strong> small French fries.",
+                            pronounce: "fries /fraɪz/ - 舌音发音技巧，防止摩擦成 'flies'."
+                        },
+                        {
+                            userText: "We should focus on social media ads, it have cheap conversion",
+                            corrected: "We should focus on social media. <strong class='correct-original'>It have</strong> <strong class='correct-upgrade'>They offer</strong> cost-effective conversions.",
+                            pronounce: "social /'səʊ.ʃəl/ - 注意双元音读法规律。"
+                        }
+                    ];
+                } else {
+                    sumP = Math.round(sumP / count);
+                    sumG = Math.round(sumG / count);
+                    sumF = Math.round(sumF / count);
+                    sumV = Math.round(sumV / count);
+                }
+
+                // 评定等级
+                let avg = (sumP + sumG + sumF + sumV) / 4;
+                let grade = "B+";
+                if (avg >= 95) grade = "A+";
+                else if (avg >= 90) grade = "A";
+                else if (avg >= 85) grade = "A-";
+                else if (avg >= 80) grade = "B+";
+                else if (avg >= 75) grade = "B";
+                else grade = "C";
+
+                document.getElementById("summary-badge-grade").innerHTML = `${grade}<span>Grade</span>`;
+                
+                // 填充面板进度数值
+                document.getElementById("metric-p-val").innerText = `${sumP}%`;
+                document.getElementById("metric-g-val").innerText = `${sumG}%`;
+                document.getElementById("metric-f-val").innerText = `${sumF}%`;
+                document.getElementById("metric-v-val").innerText = `${sumV}%`;
+
+                // 延迟注入进度条动画
+                setTimeout(() => {
+                    document.getElementById("bar-p").style.width = `${sumP}%`;
+                    document.getElementById("bar-g").style.width = `${sumG}%`;
+                    document.getElementById("bar-f").style.width = `${sumF}%`;
+                    document.getElementById("bar-v").style.width = `${sumV}%`;
+                }, 100);
+
+                // 生成纠错清单 DOM
+                const listWrap = document.getElementById("summary-corrections");
+                listWrap.innerHTML = "";
+                correctionsList.forEach((c, index) => {
+                    const card = document.createElement("div");
+                    card.className = "summary-card";
+                    card.innerHTML = `
+                        <div style="font-weight:bold; color:var(--primary-orange); margin-bottom:4px;">✏️ 纠错反馈 #${index + 1}：</div>
+                        <div style="margin-bottom:3px;"><span class="correct-original">你刚才说:</span> "${c.userText}"</div>
+                        <div style="margin-bottom:3px;"><span style="color:#2D9CDB; font-weight:bold;">更地道表达:</span> ${c.corrected}</div>
+                        <div style="font-size:11px; color:#666;">💬 <b>咬字音标规整:</b> ${c.pronounce}</div>
+                    `;
+                    listWrap.appendChild(card);
+                });
+
+            }, 800);
+        }
+
+        function goToHome() {
+            switchScreen("screen-home");
+        }
+
+
+        // === 流式后端架构规范 Drawer 抽屉状态机管理 ===
+        function openDrawer() {
+            document.getElementById("drawer-overlay").style.display = "block";
+            setTimeout(() => {
+                document.getElementById("drawer-overlay").classList.add("open");
+                document.getElementById("drawer-content").classList.add("open");
+            }, 10);
+        }
+
+        // 关闭抽屉
+        function closeDrawer() {
+            document.getElementById("drawer-overlay").classList.remove("open");
+            document.getElementById("drawer-content").classList.remove("open");
+            setTimeout(() => {
+                document.getElementById("drawer-overlay").style.display = "none";
+            }, 300);
+        }
+
+        function switchDrawerTab(tabId) {
+            // 控制Tab高亮
+            const tabContainer = document.querySelector(".tab-menu");
+            tabContainer.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+            
+            // 寻找对应的按钮
+            const activeBtn = Array.from(tabContainer.querySelectorAll(".tab-btn")).find(btn => 
+                (tabId === 'audio-flow' && btn.innerText.includes('流式语音')) ||
+                (tabId === 'eval-logic' && btn.innerText.includes('发音评测')) ||
+                (tabId === 'ws-protocol' && btn.innerText.includes('WebSocket'))
+            );
+            if (activeBtn) activeBtn.classList.add("active");
+
+            // 显示内容
+            document.querySelectorAll(".tab-section").forEach(sec => sec.style.display = "none");
+            document.getElementById(`section-${tabId}`).style.display = "block";
+            
+            showToast(`已装载: ${activeBtn ? activeBtn.innerText : tabId} 架构规范`, "📐");
+        }
+    </script>
+</body>
+</html>
