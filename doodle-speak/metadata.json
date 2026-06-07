@@ -1,0 +1,6 @@
+{
+  "name": "Doodle Speak",
+  "description": "手绘风AI英语口语陪练 APP | Doodle-style English Oral Coach",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
